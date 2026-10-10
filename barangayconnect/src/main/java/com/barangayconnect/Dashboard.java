@@ -31,18 +31,24 @@ public class Dashboard {
 
         // Main dashboard content
         JPanel content = new JPanel();
-        content.setLayout(new GridLayout(2, 2, 15, 15));
+        content.setLayout(new GridLayout(3, 2, 15, 15));
         content.setBorder(BorderFactory.createEmptyBorder(25, 25, 25, 25));
         content.setBackground(new Color(245, 247, 246));
 
         JButton accounts = new JButton("Manage Resident Accounts");
 accounts.setFont(new Font("Arial", Font.BOLD, 16));
 accounts.addActionListener(e -> ResidentManagement.showWindow());
+JButton records = new JButton("View Resident Records");
+records.setFont(new Font("Arial", Font.BOLD, 16));
+records.addActionListener(e -> ResidentRecords.showWindow());
         JLabel requests = createCard("Document Requests");
-        JLabel announcements = createCard("Announcements");
+        JButton announcements = new JButton("Manage Announcements");
+announcements.setFont(new Font("Arial", Font.BOLD, 16));
+announcements.addActionListener(e -> AnnouncementManagement.showWindow());
         JLabel profile = createCard("Official Profile");
 
         content.add(accounts);
+        content.add(records);
         content.add(requests);
         content.add(announcements);
         content.add(profile);
