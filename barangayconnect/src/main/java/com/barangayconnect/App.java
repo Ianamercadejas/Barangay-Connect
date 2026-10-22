@@ -75,16 +75,19 @@ public class App {
                 String result = LoginService.login(email, password);
 
                 if (result.startsWith("LOGIN_SUCCESS:")) {
-                    String[] parts = result.split(":", 3);
+                    String[] parts = result.split(":");
+                    System.out.println("Login result: " + result);
+System.out.println("Parts count: " + parts.length);
                     String role = parts[1];
                     String name = parts[2];
+                    int userId = Integer.parseInt(parts[3]);
 
                   frame.dispose();
 
 if ("OFFICIAL".equalsIgnoreCase(role)) {
     Dashboard.showDashboard(name, role);
 } else if ("RESIDENT".equalsIgnoreCase(role)) {
-    ResidentDashboard.showDashboard(name, role);
+    ResidentDashboard.showDashboard(name, role, userId);
 } else {
     JOptionPane.showMessageDialog(
             null,

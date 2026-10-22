@@ -13,7 +13,7 @@ public class AnnouncementManagement {
     public static void showWindow() {
 
         JFrame frame = new JFrame("Manage Announcements");
-        frame.setSize(600, 500);
+        frame.setSize(850, 500);
         frame.setLocationRelativeTo(null);
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setLayout(new BorderLayout(10, 10));
@@ -54,10 +54,14 @@ public class AnnouncementManagement {
 
         JButton publishButton = new JButton("Publish Announcement");
         JButton viewButton = new JButton("View Announcements");
+        JButton editButton = new JButton("Edit Announcement");
+        JButton deleteButton = new JButton("Delete Announcement");
 
         JPanel buttonPanel = new JPanel();
 buttonPanel.add(publishButton);
 buttonPanel.add(viewButton);
+buttonPanel.add(editButton);
+buttonPanel.add(deleteButton);
 
         frame.add(titlePanel, BorderLayout.NORTH);
         frame.add(formPanel, BorderLayout.CENTER);
@@ -109,6 +113,13 @@ buttonPanel.add(viewButton);
 viewButton.addActionListener(e -> {
             showAnnouncementsTable();
         });
+        editButton.addActionListener(e -> {
+    editAnnouncement();
+});
+ deleteButton.addActionListener(e -> {
+    deleteAnnouncement();
+});
+
 
         frame.setVisible(true);
     }
@@ -160,4 +171,136 @@ viewButton.addActionListener(e -> {
         tableFrame.add(new JScrollPane(table));
         tableFrame.setVisible(true);
     }
+   private static void editAnnouncement() {
+    String input = JOptionPane.showInputDialog(
+            null,
+            "Enter the Announcement ID you want to edit:"
+    );
+
+    if (input == null || input.trim().isEmpty()) {
+        return;
+    }
+
+    int id;
+
+    try {
+        id = Integer.parseInt(input.trim());
+    } catch (NumberFormatException ex) {
+        JOptionPane.showMessageDialog(null,
+                "Please enter a valid Announcement ID.");
+        return;
+    }
+
+    String sql = "SELECT title, content FROM announcements "
+               + "WHERE announcement_id = ?";
+
+    try (Connection conn = DBConnection.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+        stmt.setInt(1, id);
+
+        try (ResultSet rs = stmt.executeQuery()) {
+            if (!rs.next()) {
+                JOptionPane.showMessageDialog(null,
+                        "Announcement not found.");
+                return;
+            }
+
+            String oldTitle = rs.getString("title");
+            String oldContent = rs.getString("content");
+
+            String newTitle = JOptionPane.showInputDialog(
+                    null, "Edit Announcement Title:", oldTitle);
+
+            if (newTitle == null || newTitle.trim().isEmpty()) {
+                return;
+            }
+
+            String newContent = JOptionPane.showInputDialog(
+                    null, "Edit Announcement Content:", oldContent);
+
+            if (newContent == null || newContent.trim().isEmpty()) {
+                return;
+            }
+
+            String updateSql = "UPDATE announcements "
+                             + "SET title = ?, content = ? "
+                             + "WHERE announcement_id = ?";
+
+            try (PreparedStatement updateStmt =
+                         conn.prepareStatement(updateSql)) {
+
+                updateStmt.setString(1, newTitle.trim());
+                updateStmt.setString(2, newContent.trim());
+                updateStmt.setInt(3, id);
+
+                updateStmt.executeUpdate();
+
+                JOptionPane.showMessageDialog(null,
+                        "Announcement updated successfully!");
+            }
+        }
+
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(null,
+                "Unable to edit announcement:\n" + ex.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE);
+    }
+} 
+private static void deleteAnnouncement() {
+    String input = JOptionPane.showInputDialog(
+            null,
+            "Enter the Announcement ID you want to delete:"
+    );
+
+    if (input == null || input.trim().isEmpty()) {
+        return;
+    }
+
+    int id;
+
+    try {
+        id = Integer.parseInt(input.trim());
+    } catch (NumberFormatException ex) {
+        JOptionPane.showMessageDialog(null,
+                "Please enter a valid Announcement ID.");
+        return;
+    }
+
+    int confirm = JOptionPane.showConfirmDialog(
+            null,
+            "Are you sure you want to delete Announcement ID " + id + "?",
+            "Confirm Delete",
+            JOptionPane.YES_NO_OPTION
+    );
+
+    if (confirm != JOptionPane.YES_OPTION) {
+        return;
+    }
+
+    String sql = "DELETE FROM announcements WHERE announcement_id = ?";
+
+    try (Connection conn = DBConnection.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+        stmt.setInt(1, id);
+
+        int rowsDeleted = stmt.executeUpdate();
+
+        if (rowsDeleted > 0) {
+            JOptionPane.showMessageDialog(null,
+                    "Announcement deleted successfully!");
+        } else {
+            JOptionPane.showMessageDialog(null,
+                    "Announcement not found.");
+        }
+
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(null,
+                "Unable to delete announcement:\n" + ex.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE);
+    }
+}
 }

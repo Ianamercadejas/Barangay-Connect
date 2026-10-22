@@ -8,7 +8,7 @@ import java.sql.SQLException;
 public class LoginService {
 
     public static String login(String email, String password) {
-        String sql = "SELECT full_name, password_hash, role, account_status "
+        String sql = "SELECT user_id, full_name, password_hash, role, account_status "
                    + "FROM users WHERE email = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -38,11 +38,15 @@ public class LoginService {
                 }
 
                 if ("RESIDENT".equalsIgnoreCase(role)) {
-                    return "LOGIN_SUCCESS:RESIDENT:" + rs.getString("full_name");
+                    return "LOGIN_SUCCESS:RESIDENT:" 
+                    + rs.getString("full_name") + ":" 
+                    + rs.getInt("user_id");
                 }
 
                 if ("OFFICIAL".equalsIgnoreCase(role)) {
-                    return "LOGIN_SUCCESS:OFFICIAL:" + rs.getString("full_name");
+                    return "LOGIN_SUCCESS:OFFICIAL:" 
+                    + rs.getString("full_name") + ":" 
+                    + rs.getInt("user_id");
                 }
 
                 return "This account has an unrecognized role.";
