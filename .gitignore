@@ -1,1 +1,18 @@
-barangayconnect/target/
+
+# Maven generated files
+target/
+
+# Java compiled files
+*.class
+
+# IDE settings
+.idea/
+.vscode/
+
+# Environment and log files
+.env
+*.log
+
+# Private uploaded files
+document_request_photos/
+uploads/

@@ -1,22 +1,28 @@
+
 package com.barangayconnect;
 
 import javax.swing.*;
 import java.awt.*;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 
 public class ResidentDashboard {
 
-    public static void showDashboard(String name, String role, int userId) {
+    private static JFrame frame;
+    private static JPanel content;
+    private static int currentUserId;
+    private static String currentName;
 
-        JFrame frame = new JFrame("BarangayConnect - Resident");
+    public static void showDashboard(
+            String name, String role, int userId) {
+
+        currentName = name;
+        currentUserId = userId;
+
+        frame = new JFrame("BarangayConnect - Resident");
         frame.setSize(800, 500);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLocationRelativeTo(null);
         frame.setLayout(new BorderLayout());
 
-        // Header
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(new Color(30, 90, 70));
         header.setBorder(
@@ -26,79 +32,109 @@ public class ResidentDashboard {
         title.setForeground(Color.WHITE);
         title.setFont(new Font("Arial", Font.BOLD, 24));
 
-        JLabel welcome = new JLabel("Welcome, " + name + "!");
+        JPanel rightPanel = new JPanel(new FlowLayout(
+                FlowLayout.RIGHT, 15, 0));
+        rightPanel.setOpaque(false);
+
+        JLabel welcome = new JLabel("Welcome, " + currentName + "!");
         welcome.setForeground(Color.WHITE);
         welcome.setFont(new Font("Arial", Font.PLAIN, 14));
 
-        header.add(title, BorderLayout.WEST);
-        header.add(welcome, BorderLayout.EAST);
+        JButton logoutButton = new JButton("Logout");
+        logoutButton.setFont(new Font("Arial", Font.BOLD, 12));
+        logoutButton.addActionListener(e -> logout());
 
-        // Resident menu
-        JPanel content = new JPanel(new GridLayout(3, 2, 15, 15));
+        rightPanel.add(welcome);
+        rightPanel.add(logoutButton);
+
+        header.add(title, BorderLayout.WEST);
+        header.add(rightPanel, BorderLayout.EAST);
+
+        content = new JPanel(new BorderLayout());
         content.setBorder(
                 BorderFactory.createEmptyBorder(25, 25, 25, 25));
         content.setBackground(new Color(245, 247, 246));
 
-        // Announcements card
-        JLabel announcementsCard = createCard("Announcements");
-        announcementsCard.setCursor(
-                new Cursor(Cursor.HAND_CURSOR));
-
-        announcementsCard.addMouseListener(
-                new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                showAnnouncements(content, userId);
-            }
-        });
-
-        content.add(announcementsCard);
-
-        // Request Documents card
-        JLabel requestCard = createCard("Request Documents");
-        requestCard.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        requestCard.addMouseListener(
-                new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                DocumentRequest.showForm(userId);
-            }
-        });
-
-        content.add(requestCard);
-
-        content.add(createCard("My Requests"));
-        content.add(createCard("Ayuda Programs"));
-        content.add(createCard("Barangay Events"));
-        content.add(createCard("My Profile"));
-
         frame.add(header, BorderLayout.NORTH);
         frame.add(content, BorderLayout.CENTER);
 
+        showMenu();
         frame.setVisible(true);
     }
 
-    private static JLabel createCard(String text) {
+    private static void logout() {
+        int choice = JOptionPane.showConfirmDialog(
+                frame,
+                "Are you sure you want to logout?",
+                "Confirm Logout",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (choice == JOptionPane.YES_OPTION) {
+            frame.dispose();
+            App.showLoginWindow();
+        }
+    }
+
+    private static void showMenu() {
+        content.removeAll();
+        content.setLayout(new GridLayout(3, 2, 15, 15));
+
+        addCard("Announcements",
+                () -> showAnnouncements());
+
+        addCard("Request Documents",
+                () -> DocumentRequest.showForm(
+                        content, currentUserId,
+                        ResidentDashboard::showMenu));
+
+        addCard("My Requests",
+                () -> ResidentMyRequests.showWindow(
+                        content, currentUserId,
+                        ResidentDashboard::showMenu));
+
+        addCard("Barangay Officials",
+                () -> ResidentBarangayOfficials.showWindow(
+                        content, ResidentDashboard::showMenu));
+
+        addCard("My Profile",
+                () -> ResidentPersonalInformation.showWindow(
+                        content, currentUserId,
+                        ResidentDashboard::showMenu));
+
+        content.revalidate();
+        content.repaint();
+    }
+
+    private static void addCard(String text, Runnable action) {
         JLabel card = new JLabel(text, SwingConstants.CENTER);
         card.setFont(new Font("Arial", Font.BOLD, 16));
         card.setOpaque(true);
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createLineBorder(
                 new Color(210, 220, 215), 1));
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        return card;
+        card.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(
+                    java.awt.event.MouseEvent e) {
+                action.run();
+            }
+        });
+
+        content.add(card);
     }
 
-    private static void showAnnouncements(
-            JPanel content, int userId) {
-
+    public static void showAnnouncements() {
         content.removeAll();
         content.setLayout(new BorderLayout(10, 10));
 
         JButton backButton = new JButton("Back");
 
-        JLabel heading = new JLabel("Barangay Announcements");
+        JLabel heading =
+                new JLabel("Barangay Announcements");
         heading.setFont(new Font("Arial", Font.BOLD, 22));
 
         JPanel topPanel = new JPanel(new BorderLayout(10, 10));
@@ -111,85 +147,41 @@ public class ResidentDashboard {
         area.setWrapStyleWord(true);
         area.setFont(new Font("Arial", Font.PLAIN, 14));
 
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT title, content, created_at FROM announcements "
-                     + "WHERE status = 'PUBLISHED' "
-                     + "ORDER BY created_at DESC");
-             ResultSet rs = stmt.executeQuery()) {
+        String sql = "SELECT title, content, created_at "
+                + "FROM announcements ORDER BY created_at DESC";
+
+        try (java.sql.Connection conn =
+                     DBConnection.getConnection();
+             java.sql.PreparedStatement stmt =
+                     conn.prepareStatement(sql);
+             java.sql.ResultSet rs = stmt.executeQuery()) {
 
             boolean found = false;
 
             while (rs.next()) {
                 found = true;
-
                 area.append("Title: "
                         + rs.getString("title") + "\n");
                 area.append("Date: "
                         + rs.getString("created_at") + "\n");
                 area.append(rs.getString("content") + "\n\n");
-                area.append("--------------------------------\n\n");
+                area.append(
+                        "------------------------------\n\n");
             }
 
             if (!found) {
-                area.setText("No published announcements yet.");
+                area.setText("No announcements yet.");
             }
 
         } catch (Exception ex) {
-            area.setText(
-                    "Unable to load announcements:\n"
+            area.setText("Unable to load announcements:\n"
                     + ex.getMessage());
         }
 
-        // Return to the resident dashboard
-        backButton.addActionListener(e -> {
-            content.removeAll();
-            content.setLayout(new GridLayout(3, 2, 15, 15));
-
-            // Announcements card
-            JLabel announcementsCard = createCard("Announcements");
-            announcementsCard.setCursor(
-                    new Cursor(Cursor.HAND_CURSOR));
-
-            announcementsCard.addMouseListener(
-                    new java.awt.event.MouseAdapter() {
-                @Override
-                public void mouseClicked(
-                        java.awt.event.MouseEvent e) {
-                    showAnnouncements(content, userId);
-                }
-            });
-
-            content.add(announcementsCard);
-
-            // Request Documents card
-            JLabel requestCard = createCard("Request Documents");
-            requestCard.setCursor(
-                    new Cursor(Cursor.HAND_CURSOR));
-
-            requestCard.addMouseListener(
-                    new java.awt.event.MouseAdapter() {
-                @Override
-                public void mouseClicked(
-                        java.awt.event.MouseEvent e) {
-                    DocumentRequest.showForm(userId);
-                }
-            });
-
-            content.add(requestCard);
-
-            content.add(createCard("My Requests"));
-            content.add(createCard("Ayuda Programs"));
-            content.add(createCard("Barangay Events"));
-            content.add(createCard("My Profile"));
-
-            content.revalidate();
-            content.repaint();
-        });
+        backButton.addActionListener(e -> showMenu());
 
         content.add(topPanel, BorderLayout.NORTH);
         content.add(new JScrollPane(area), BorderLayout.CENTER);
-
         content.revalidate();
         content.repaint();
     }

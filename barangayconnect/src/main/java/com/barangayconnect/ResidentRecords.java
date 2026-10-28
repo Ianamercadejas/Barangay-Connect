@@ -1,3 +1,4 @@
+
 package com.barangayconnect;
 
 import javax.swing.*;
@@ -11,22 +12,32 @@ import java.sql.SQLException;
 public class ResidentRecords {
 
     public static void showWindow() {
-
         JFrame frame = new JFrame("Resident Records");
         frame.setSize(900, 500);
         frame.setLocationRelativeTo(null);
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        frame.setLayout(new BorderLayout(10, 10));
 
-        // Title
+        JPanel content = new JPanel(new BorderLayout());
+        showWindow(content, frame::dispose);
+
+        frame.add(content);
+        frame.setVisible(true);
+    }
+
+    public static void showWindow(JPanel content, Runnable backAction) {
+
+        content.removeAll();
+        content.setLayout(new BorderLayout(10, 10));
+        content.setBackground(new Color(245, 247, 246));
+
         JLabel title = new JLabel("Resident Records");
         title.setFont(new Font("Arial", Font.BOLD, 24));
         title.setBorder(BorderFactory.createEmptyBorder(15, 15, 5, 15));
 
-        // Search field
         JTextField searchField = new JTextField(25);
         JButton searchButton = new JButton("Search");
         JButton refreshButton = new JButton("Refresh");
+        JButton backButton = new JButton("Back to Dashboard");
 
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         searchPanel.add(new JLabel("Search by name or email:"));
@@ -38,7 +49,6 @@ public class ResidentRecords {
         topPanel.add(title, BorderLayout.NORTH);
         topPanel.add(searchPanel, BorderLayout.CENTER);
 
-        // Residents table
         String[] columns = {
             "Resident ID",
             "Full Name",
@@ -60,10 +70,13 @@ public class ResidentRecords {
 
         JScrollPane scrollPane = new JScrollPane(table);
 
-        frame.add(topPanel, BorderLayout.NORTH);
-        frame.add(scrollPane, BorderLayout.CENTER);
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        bottomPanel.add(backButton);
 
-        // Load resident records
+        content.add(topPanel, BorderLayout.NORTH);
+        content.add(scrollPane, BorderLayout.CENTER);
+        content.add(bottomPanel, BorderLayout.SOUTH);
+
         Runnable loadResidents = () -> {
             model.setRowCount(0);
 
@@ -98,7 +111,7 @@ public class ResidentRecords {
 
             } catch (SQLException e) {
                 JOptionPane.showMessageDialog(
-                    frame,
+                    content,
                     "Unable to load resident records.\n" + e.getMessage(),
                     "Database Error",
                     JOptionPane.ERROR_MESSAGE
@@ -107,7 +120,6 @@ public class ResidentRecords {
         };
 
         searchButton.addActionListener(e -> loadResidents.run());
-
         searchField.addActionListener(e -> loadResidents.run());
 
         refreshButton.addActionListener(e -> {
@@ -115,9 +127,11 @@ public class ResidentRecords {
             loadResidents.run();
         });
 
-        // Load all residents when the window opens
+        backButton.addActionListener(e -> backAction.run());
+
         loadResidents.run();
 
-        frame.setVisible(true);
+        content.revalidate();
+        content.repaint();
     }
 }

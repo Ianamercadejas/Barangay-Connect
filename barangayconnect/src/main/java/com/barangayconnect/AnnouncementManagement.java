@@ -1,22 +1,40 @@
+
 package com.barangayconnect;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.sql.ResultSet;
-import javax.swing.table.DefaultTableModel;
+import java.sql.SQLException;
 
 public class AnnouncementManagement {
 
     public static void showWindow() {
-
         JFrame frame = new JFrame("Manage Announcements");
-        frame.setSize(850, 500);
+        frame.setSize(900, 550);
         frame.setLocationRelativeTo(null);
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        frame.setLayout(new BorderLayout(10, 10));
+
+        JPanel content = new JPanel(new BorderLayout());
+        showWindow(content, 1, frame::dispose);
+
+        frame.add(content);
+        frame.setVisible(true);
+    }
+
+    public static void showWindow(
+            JPanel content, int officialUserId, Runnable backAction) {
+
+        showAnnouncementForm(content, officialUserId, backAction);
+    }
+
+    private static void showAnnouncementForm(
+            JPanel content, int officialUserId, Runnable backAction) {
+
+        content.removeAll();
+        content.setLayout(new BorderLayout(10, 10));
 
         JLabel titleLabel = new JLabel("Create Announcement");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
@@ -31,6 +49,7 @@ public class AnnouncementManagement {
 
         JPanel formPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
+
         gbc.insets = new Insets(8, 10, 8, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.anchor = GridBagConstraints.NORTHWEST;
@@ -44,92 +63,116 @@ public class AnnouncementManagement {
 
         gbc.gridx = 0;
         gbc.gridy = 1;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.weighty = 1;
         formPanel.add(new JLabel("Announcement Content:"), gbc);
 
         gbc.gridx = 1;
-        gbc.fill = GridBagConstraints.BOTH;
         gbc.weightx = 1;
-        gbc.weighty = 1;
         formPanel.add(new JScrollPane(contentArea), gbc);
 
         JButton publishButton = new JButton("Publish Announcement");
         JButton viewButton = new JButton("View Announcements");
         JButton editButton = new JButton("Edit Announcement");
         JButton deleteButton = new JButton("Delete Announcement");
+        JButton backButton = new JButton("Back to Dashboard");
 
-        JPanel buttonPanel = new JPanel();
-buttonPanel.add(publishButton);
-buttonPanel.add(viewButton);
-buttonPanel.add(editButton);
-buttonPanel.add(deleteButton);
+        JPanel actionPanel = new JPanel(
+                new FlowLayout(FlowLayout.CENTER, 8, 8));
 
-        frame.add(titlePanel, BorderLayout.NORTH);
-        frame.add(formPanel, BorderLayout.CENTER);
-        frame.add(buttonPanel, BorderLayout.SOUTH);
+        actionPanel.add(publishButton);
+        actionPanel.add(viewButton);
+        actionPanel.add(editButton);
+        actionPanel.add(deleteButton);
+
+        // Dedicated row for the Dashboard button.
+        JPanel backPanel = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 10, 8));
+
+        backPanel.add(backButton);
+
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.add(actionPanel, BorderLayout.CENTER);
+        bottomPanel.add(backPanel, BorderLayout.SOUTH);
+
+        content.add(titlePanel, BorderLayout.NORTH);
+        content.add(formPanel, BorderLayout.CENTER);
+        content.add(bottomPanel, BorderLayout.SOUTH);
 
         publishButton.addActionListener(e -> {
-
             String title = titleField.getText().trim();
-            String content = contentArea.getText().trim();
+            String announcementContent = contentArea.getText().trim();
 
-            if (title.isEmpty() || content.isEmpty()) {
+            if (title.isEmpty() || announcementContent.isEmpty()) {
                 JOptionPane.showMessageDialog(
-                    frame,
-                    "Please enter both the title and content."
-                );
+                        content,
+                        "Please enter both the title and content.");
                 return;
             }
 
             String sql = "INSERT INTO announcements "
-                       + "(title, content, posted_by, status) "
-                       + "VALUES (?, ?, ?, 'PUBLISHED')";
+                    + "(title, content, posted_by) VALUES (?, ?, ?)";
 
             try (Connection conn = DBConnection.getConnection();
                  PreparedStatement stmt = conn.prepareStatement(sql)) {
 
                 stmt.setString(1, title);
-                stmt.setString(2, content);
-                stmt.setInt(3, 1); 
+                stmt.setString(2, announcementContent);
+                stmt.setInt(3, officialUserId);
 
-                stmt.executeUpdate();
+                if (stmt.executeUpdate() > 0) {
+                    JOptionPane.showMessageDialog(
+                            content,
+                            "Announcement published successfully!");
 
-                JOptionPane.showMessageDialog(
-                    frame,
-                    "Announcement published successfully!"
-                );
-
-                titleField.setText("");
-                contentArea.setText("");
+                    titleField.setText("");
+                    contentArea.setText("");
+                }
 
             } catch (SQLException ex) {
+                ex.printStackTrace();
+
                 JOptionPane.showMessageDialog(
-                    frame,
-                    "Unable to publish announcement:\n" + ex.getMessage(),
-                    "Database Error",
-                    JOptionPane.ERROR_MESSAGE
-                );
+                        content,
+                        "Unable to publish announcement:\n"
+                                + ex.getMessage(),
+                        "Database Error",
+                        JOptionPane.ERROR_MESSAGE);
             }
         });
-viewButton.addActionListener(e -> {
-            showAnnouncementsTable();
+
+        viewButton.addActionListener(e ->
+                showAnnouncementsTable(
+                        content, officialUserId, backAction));
+
+        editButton.addActionListener(e -> editAnnouncement(content));
+
+        deleteButton.addActionListener(e -> deleteAnnouncement(content));
+
+        backButton.addActionListener(e -> {
+            if (backAction != null) {
+                backAction.run();
+            }
         });
-        editButton.addActionListener(e -> {
-    editAnnouncement();
-});
- deleteButton.addActionListener(e -> {
-    deleteAnnouncement();
-});
 
-
-        frame.setVisible(true);
+        content.revalidate();
+        content.repaint();
     }
-    private static void showAnnouncementsTable() {
-        JFrame tableFrame = new JFrame("All Announcements");
-        tableFrame.setSize(750, 450);
-        tableFrame.setLocationRelativeTo(null);
+
+    private static void showAnnouncementsTable(
+            JPanel content, int officialUserId, Runnable backAction) {
+
+        content.removeAll();
+        content.setLayout(new BorderLayout(10, 10));
+
+        JLabel title = new JLabel(
+                "ALL ANNOUNCEMENTS", SwingConstants.CENTER);
+        title.setFont(new Font("Arial", Font.BOLD, 22));
+        title.setBorder(
+                BorderFactory.createEmptyBorder(15, 10, 10, 10));
 
         String[] columns = {
-                "ID", "Title", "Content", "Posted By", "Created At", "Status"
+            "ID", "Title", "Content", "Posted By", "Created At"
         };
 
         DefaultTableModel model = new DefaultTableModel(columns, 0) {
@@ -140,167 +183,242 @@ viewButton.addActionListener(e -> {
         };
 
         JTable table = new JTable(model);
+        table.setAutoCreateRowSorter(true);
+        table.setRowHeight(24);
 
         String sql = "SELECT announcement_id, title, content, posted_by, "
-                   + "created_at, status FROM announcements "
-                   + "ORDER BY created_at DESC";
+                + "created_at FROM announcements ORDER BY created_at DESC";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                model.addRow(new Object[] {
-                        rs.getInt("announcement_id"),
-                        rs.getString("title"),
-                        rs.getString("content"),
-                        rs.getInt("posted_by"),
-                        rs.getTimestamp("created_at"),
-                        rs.getString("status")
+                model.addRow(new Object[]{
+                    rs.getInt("announcement_id"),
+                    rs.getString("title"),
+                    rs.getString("content"),
+                    rs.getInt("posted_by"),
+                    rs.getTimestamp("created_at")
                 });
             }
 
         } catch (SQLException ex) {
+            ex.printStackTrace();
+
             JOptionPane.showMessageDialog(
-                    tableFrame,
+                    content,
                     "Unable to load announcements:\n" + ex.getMessage(),
                     "Database Error",
                     JOptionPane.ERROR_MESSAGE);
         }
 
-        tableFrame.add(new JScrollPane(table));
-        tableFrame.setVisible(true);
+        JButton refreshButton = new JButton("Refresh");
+        JButton formButton = new JButton("Back to Announcement Form");
+        JButton dashboardButton = new JButton("Back to Dashboard");
+
+        JPanel actionPanel = new JPanel(
+                new FlowLayout(FlowLayout.CENTER, 8, 8));
+
+        actionPanel.add(refreshButton);
+        actionPanel.add(formButton);
+
+        JPanel dashboardPanel = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 10, 8));
+
+        dashboardPanel.add(dashboardButton);
+
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.add(actionPanel, BorderLayout.CENTER);
+        bottomPanel.add(dashboardPanel, BorderLayout.SOUTH);
+
+        refreshButton.addActionListener(e ->
+                showAnnouncementsTable(
+                        content, officialUserId, backAction));
+
+        formButton.addActionListener(e ->
+                showAnnouncementForm(
+                        content, officialUserId, backAction));
+
+        dashboardButton.addActionListener(e -> {
+            if (backAction != null) {
+                backAction.run();
+            }
+        });
+
+        content.add(title, BorderLayout.NORTH);
+        content.add(new JScrollPane(table), BorderLayout.CENTER);
+        content.add(bottomPanel, BorderLayout.SOUTH);
+
+        content.revalidate();
+        content.repaint();
     }
-   private static void editAnnouncement() {
-    String input = JOptionPane.showInputDialog(
-            null,
-            "Enter the Announcement ID you want to edit:"
-    );
 
-    if (input == null || input.trim().isEmpty()) {
-        return;
+    private static void editAnnouncement(Component parent) {
+        String input = JOptionPane.showInputDialog(
+                parent,
+                "Enter the Announcement ID you want to edit:");
+
+        if (input == null || input.trim().isEmpty()) {
+            return;
+        }
+
+        int id;
+
+        try {
+            id = Integer.parseInt(input.trim());
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(
+                    parent,
+                    "Please enter a valid Announcement ID.");
+            return;
+        }
+
+        String sql = "SELECT title, content FROM announcements "
+                + "WHERE announcement_id = ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, id);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    JOptionPane.showMessageDialog(
+                            parent, "Announcement not found.");
+                    return;
+                }
+
+                JTextField newTitle =
+                        new JTextField(rs.getString("title"));
+
+                JTextArea newContent = new JTextArea(
+                        rs.getString("content"), 8, 30);
+
+                newContent.setLineWrap(true);
+                newContent.setWrapStyleWord(true);
+
+                JPanel form = new JPanel(
+                        new GridLayout(0, 1, 5, 5));
+
+                form.add(new JLabel("Announcement Title:"));
+                form.add(newTitle);
+                form.add(new JLabel("Announcement Content:"));
+                form.add(new JScrollPane(newContent));
+
+                int choice = JOptionPane.showConfirmDialog(
+                        parent,
+                        form,
+                        "Edit Announcement",
+                        JOptionPane.OK_CANCEL_OPTION,
+                        JOptionPane.PLAIN_MESSAGE);
+
+                if (choice != JOptionPane.OK_OPTION) {
+                    return;
+                }
+
+                if (newTitle.getText().trim().isEmpty()
+                        || newContent.getText().trim().isEmpty()) {
+                    JOptionPane.showMessageDialog(
+                            parent,
+                            "Title and content cannot be empty.");
+                    return;
+                }
+
+                String updateSql = "UPDATE announcements "
+                        + "SET title = ?, content = ? "
+                        + "WHERE announcement_id = ?";
+
+                try (PreparedStatement update =
+                             conn.prepareStatement(updateSql)) {
+
+                    update.setString(1, newTitle.getText().trim());
+                    update.setString(2, newContent.getText().trim());
+                    update.setInt(3, id);
+
+                    if (update.executeUpdate() > 0) {
+                        JOptionPane.showMessageDialog(
+                                parent,
+                                "Announcement updated successfully!");
+                    } else {
+                        JOptionPane.showMessageDialog(
+                                parent,
+                                "Announcement was not updated.");
+                    }
+                }
+            }
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+
+            JOptionPane.showMessageDialog(
+                    parent,
+                    "Unable to edit announcement:\n" + ex.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE);
+        }
     }
 
-    int id;
+    private static void deleteAnnouncement(Component parent) {
+        String input = JOptionPane.showInputDialog(
+                parent,
+                "Enter the Announcement ID you want to delete:");
 
-    try {
-        id = Integer.parseInt(input.trim());
-    } catch (NumberFormatException ex) {
-        JOptionPane.showMessageDialog(null,
-                "Please enter a valid Announcement ID.");
-        return;
-    }
+        if (input == null || input.trim().isEmpty()) {
+            return;
+        }
 
-    String sql = "SELECT title, content FROM announcements "
-               + "WHERE announcement_id = ?";
+        int id;
 
-    try (Connection conn = DBConnection.getConnection();
-         PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try {
+            id = Integer.parseInt(input.trim());
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(
+                    parent,
+                    "Please enter a valid Announcement ID.");
+            return;
+        }
 
-        stmt.setInt(1, id);
+        int confirm = JOptionPane.showConfirmDialog(
+                parent,
+                "Are you sure you want to delete Announcement ID "
+                        + id + "?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION);
 
-        try (ResultSet rs = stmt.executeQuery()) {
-            if (!rs.next()) {
-                JOptionPane.showMessageDialog(null,
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        String sql =
+                "DELETE FROM announcements WHERE announcement_id = ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, id);
+
+            int rowsDeleted = stmt.executeUpdate();
+
+            if (rowsDeleted > 0) {
+                JOptionPane.showMessageDialog(
+                        parent,
+                        "Announcement deleted successfully!");
+            } else {
+                JOptionPane.showMessageDialog(
+                        parent,
                         "Announcement not found.");
-                return;
             }
 
-            String oldTitle = rs.getString("title");
-            String oldContent = rs.getString("content");
+        } catch (SQLException ex) {
+            ex.printStackTrace();
 
-            String newTitle = JOptionPane.showInputDialog(
-                    null, "Edit Announcement Title:", oldTitle);
-
-            if (newTitle == null || newTitle.trim().isEmpty()) {
-                return;
-            }
-
-            String newContent = JOptionPane.showInputDialog(
-                    null, "Edit Announcement Content:", oldContent);
-
-            if (newContent == null || newContent.trim().isEmpty()) {
-                return;
-            }
-
-            String updateSql = "UPDATE announcements "
-                             + "SET title = ?, content = ? "
-                             + "WHERE announcement_id = ?";
-
-            try (PreparedStatement updateStmt =
-                         conn.prepareStatement(updateSql)) {
-
-                updateStmt.setString(1, newTitle.trim());
-                updateStmt.setString(2, newContent.trim());
-                updateStmt.setInt(3, id);
-
-                updateStmt.executeUpdate();
-
-                JOptionPane.showMessageDialog(null,
-                        "Announcement updated successfully!");
-            }
+            JOptionPane.showMessageDialog(
+                    parent,
+                    "Unable to delete announcement:\n"
+                            + ex.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
-
-    } catch (SQLException ex) {
-        JOptionPane.showMessageDialog(null,
-                "Unable to edit announcement:\n" + ex.getMessage(),
-                "Database Error",
-                JOptionPane.ERROR_MESSAGE);
     }
-} 
-private static void deleteAnnouncement() {
-    String input = JOptionPane.showInputDialog(
-            null,
-            "Enter the Announcement ID you want to delete:"
-    );
-
-    if (input == null || input.trim().isEmpty()) {
-        return;
-    }
-
-    int id;
-
-    try {
-        id = Integer.parseInt(input.trim());
-    } catch (NumberFormatException ex) {
-        JOptionPane.showMessageDialog(null,
-                "Please enter a valid Announcement ID.");
-        return;
-    }
-
-    int confirm = JOptionPane.showConfirmDialog(
-            null,
-            "Are you sure you want to delete Announcement ID " + id + "?",
-            "Confirm Delete",
-            JOptionPane.YES_NO_OPTION
-    );
-
-    if (confirm != JOptionPane.YES_OPTION) {
-        return;
-    }
-
-    String sql = "DELETE FROM announcements WHERE announcement_id = ?";
-
-    try (Connection conn = DBConnection.getConnection();
-         PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-        stmt.setInt(1, id);
-
-        int rowsDeleted = stmt.executeUpdate();
-
-        if (rowsDeleted > 0) {
-            JOptionPane.showMessageDialog(null,
-                    "Announcement deleted successfully!");
-        } else {
-            JOptionPane.showMessageDialog(null,
-                    "Announcement not found.");
-        }
-
-    } catch (SQLException ex) {
-        JOptionPane.showMessageDialog(null,
-                "Unable to delete announcement:\n" + ex.getMessage(),
-                "Database Error",
-                JOptionPane.ERROR_MESSAGE);
-    }
-}
 }

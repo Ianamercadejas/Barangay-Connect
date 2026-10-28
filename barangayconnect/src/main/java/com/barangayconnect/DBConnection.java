@@ -13,6 +13,15 @@ public class DBConnection {
     private static final String PASSWORD = "";
 
     public static Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(URL, USER, PASSWORD);
+    try {
+        Class.forName("org.mariadb.jdbc.Driver");
+    } catch (ClassNotFoundException e) {
+        throw new SQLException(
+                "MariaDB driver was not found. Check the Maven dependencies.",
+                e
+        );
     }
+
+    return DriverManager.getConnection(URL, USER, PASSWORD);
+}
 }
